@@ -4,7 +4,7 @@ import android.text.TextUtils;
 
 import com.github.catvod.bean.Vod;
 import com.github.catvod.utils.Image;
-import com.github.catvod.utils.Util;
+import com.github.catvod.utils.VodUtil;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
@@ -32,12 +32,19 @@ public class Item {
     @SerializedName(value = "modified", alternate = "updated_at")
     private String modified;
 
+    private Item() {
+    }
+
+    public static Item create() {
+        return new Item();
+    }
+
     public static Item objectFrom(String str) {
         return new Gson().fromJson(str, Item.class);
     }
 
     public static List<Item> arrayFrom(String str) {
-        Type listType = new TypeToken<List<Item>>() {}.getType();
+        Type listType = TypeToken.getParameterized(List.class, Item.class).getType();
         return new Gson().fromJson(str, listType);
     }
 
@@ -45,24 +52,17 @@ public class Item {
         return TextUtils.isEmpty(name) ? "" : name;
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
     public String getPath() {
         return TextUtils.isEmpty(path) ? "" : path;
     }
 
-    public void setPath(String path) {
+    public Item path(String path) {
         this.path = path;
+        return this;
     }
 
     public int getType() {
         return type;
-    }
-
-    public void setType(int type) {
-        this.type = type;
     }
 
     public long getSize() {
@@ -71,10 +71,6 @@ public class Item {
 
     public String getThumb() {
         return TextUtils.isEmpty(thumb) ? "" : thumb;
-    }
-
-    public void setThumb(String thumb) {
-        this.thumb = thumb;
     }
 
     public String getUrl() {
@@ -123,14 +119,14 @@ public class Item {
     }
 
     public String getRemark() {
-        return Util.getSize(getSize());
+        return VodUtil.getSize(getSize());
     }
 
     public Vod getVod(String id) {
-        return new Vod(getVodId(id), getName(), getPic(), getRemark(), isFolder());
+        return Vod.create().id(getVodId(id)).name(getName()).pic(getPic()).remarks(getRemark()).tag(isFolder() ? "folder" : "file");
     }
 
     public Vod getVod(Drive drive) {
-        return new Vod(getVodPath(drive.getName()), getName(), getPic(), drive.getName(), isFolder());
+        return Vod.create().id(getVodPath(drive.getName())).name(getName()).pic(getPic()).remarks(drive.getName()).tag(isFolder() ? "folder" : "file");
     }
 }

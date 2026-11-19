@@ -2,6 +2,7 @@ package com.github.catvod.bean.market;
 
 import android.text.TextUtils;
 
+import com.github.catvod.bean.Style;
 import com.github.catvod.bean.Vod;
 import com.google.gson.annotations.SerializedName;
 
@@ -18,8 +19,16 @@ public class Item {
     @SerializedName("version")
     private String version;
 
-    public Item(String url) {
+    private Item() {
+    }
+
+    public static Item create() {
+        return new Item();
+    }
+
+    public Item url(String url) {
         this.url = url;
+        return this;
     }
 
     public String getName() {
@@ -43,7 +52,7 @@ public class Item {
     }
 
     public Vod vod() {
-        return new Vod("", getName(), getIcon(), getVersion(), Vod.Style.rect(1.0f), getUrl());
+        return Vod.create().id("").name(getName()).pic(getIcon()).remarks(getVersion()).style(Style.create().type("rect").ratio(1.0f)).action(getUrl());
     }
 
     @Override

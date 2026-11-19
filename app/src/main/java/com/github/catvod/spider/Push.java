@@ -1,89 +1,76 @@
 package com.github.catvod.spider;
 
-import android.net.Uri;
 import android.text.TextUtils;
 
-import com.github.catvod.bean.Result;
 import com.github.catvod.bean.Sub;
 import com.github.catvod.bean.Vod;
 import com.github.catvod.crawler.Spider;
-import com.github.catvod.net.OkHttp;
 import com.github.catvod.utils.Image;
 import com.github.catvod.utils.Path;
-import com.github.catvod.utils.Util;
+import com.github.catvod.utils.Response;
+import com.github.catvod.utils.VodUtil;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class Push extends Spider {
 
+    private static final Pattern THUNDER = Pattern.compile("(magnet|thunder|ed2k):.*");
+
     @Override
     public String detailContent(List<String> ids) {
-        return Result.string(vod(ids.get(0)));
+        List<Vod> items = new ArrayList<>();
+        for (String id : ids) items.add(vod(id));
+        return Response.create().vods(items).string();
     }
 
     @Override
     public String playerContent(String flag, String id, List<String> vipFlags) {
         if (id.contains("://") && id.contains("***")) id = id.replace("***", "#");
-        return switch (flag) {
-            case "直連" -> Result.get().url(id).subs(getSubs(id)).string();
-            case "解析" -> Result.get().parse().jx().url(id).string();
-            case "嗅探" -> Result.get().parse().url(id).string();
-            default -> Result.get().url(id).string();
-        };
+        Response result = Response.create().url(id);
+        switch (flag) {
+            case "直連" -> result.subs(getSubs(id));
+            case "解析" -> result.parse().jx();
+            case "嗅探" -> result.parse();
+        }
+        return result.string();
     }
 
     private Vod vod(String url) {
-        Vod vod = new Vod();
-        vod.setVodId(url);
-        vod.setVodPic(Image.PUSH);
-        vod.setTypeName("FongMi");
-        vod.setVodName(url.startsWith("file://") ? new File(url).getName() : "");
+        Vod vod = Vod.create().id(url).name(url.startsWith("file://") ? new File(url).getName() : "").pic(Image.PUSH).typeName("FongMi");
         if (url.contains("://") && url.contains("#")) url = url.replace("#", "***");
-        if (Util.isThunder(url)) {
-            vod.setVodPlayUrl(url);
-            vod.setVodPlayFrom("迅雷");
+        if (isThunder(url)) {
+            return vod.playUrl(url).playFrom("迅雷");
         } else if (url.contains("youtube.com")) {
-            vod.setVodPlayUrl(url);
-            vod.setVodPlayFrom("YouTube");
+            return vod.playUrl(url).playFrom("YouTube");
         } else if (url.contains("$")) {
-            vod.setVodPlayFrom("直連");
-            vod.setVodPlayUrl(TextUtils.join("#", url.split("\n")));
+            return vod.playFrom("直連").playUrl(TextUtils.join("#", url.split("\n")));
         } else {
-            vod.setVodPlayUrl(TextUtils.join("$$$", Arrays.asList(url, url, url)));
-            vod.setVodPlayFrom(TextUtils.join("$$$", Arrays.asList("直連", "嗅探", "解析")));
+            return vod.playUrl(TextUtils.join("$$$", Arrays.asList(url, url, url))).playFrom(TextUtils.join("$$$", Arrays.asList("直連", "嗅探", "解析")));
         }
-        return vod;
+    }
+
+    private boolean isThunder(String url) {
+        return THUNDER.matcher(url).find() || isTorrent(url);
+    }
+
+    private boolean isTorrent(String url) {
+        return !url.startsWith("magnet") && url.split(";")[0].endsWith(".torrent");
     }
 
     private List<Sub> getSubs(String url) {
         List<Sub> subs = new ArrayList<>();
-        if (url.startsWith("file://")) setFileSub(url, subs);
-        if (url.startsWith("http://")) setHttpSub(url, subs);
-        return subs;
-    }
-
-    private void setHttpSub(String url, List<Sub> subs) {
-        List<String> vodTypes = Arrays.asList("mp4", "mkv");
-        List<String> subTypes = Arrays.asList("srt", "ass");
-        if (!vodTypes.contains(Util.getExt(url))) return;
-        for (String ext : subTypes) detectSub(url, ext, subs);
-    }
-
-    private void detectSub(String url, String ext, List<Sub> subs) {
-        url = Util.removeExt(url).concat(".").concat(ext);
-        if (OkHttp.string(url).length() < 100) return;
-        String name = Uri.parse(url).getLastPathSegment();
-        subs.add(Sub.create().name(name).ext(ext).url(url));
-    }
-
-    private void setFileSub(String url, List<Sub> subs) {
-        File file = new File(url.replace("file://", ""));
-        for (File f : Path.list(file.getParentFile())) {
-            String ext = Util.getExt(f.getName());
-            if (Util.isSub(ext)) subs.add(Sub.create().name(Util.removeExt(f.getName())).ext(ext).url("file://" + f.getAbsolutePath()));
+        if (!url.startsWith("file://")) return subs;
+        File parent = new File(url.replace("file://", "")).getParentFile();
+        if (parent == null) return subs;
+        for (File f : Path.list(parent)) {
+            String ext = VodUtil.getExt(f.getName());
+            if (!f.isFile() || !VodUtil.isSub(ext)) continue;
+            subs.add(Sub.create().name(VodUtil.removeExt(f.getName())).format(ext).url("file://" + f.getAbsolutePath()));
         }
+        return subs;
     }
 }

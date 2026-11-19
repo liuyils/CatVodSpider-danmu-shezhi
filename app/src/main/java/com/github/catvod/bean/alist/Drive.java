@@ -4,7 +4,7 @@ import android.net.Uri;
 import android.text.TextUtils;
 
 import com.github.catvod.bean.Class;
-import com.github.catvod.net.OkHttp;
+import com.github.catvod.net.Net;
 import com.github.catvod.utils.Util;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
@@ -37,8 +37,15 @@ public class Drive {
     @SerializedName("hidden")
     private Boolean hidden;
 
+    private Drive() {
+    }
+
+    public static Drive create() {
+        return new Drive();
+    }
+
     public static List<Drive> arrayFrom(String str) {
-        Type listType = new TypeToken<List<Drive>>() {}.getType();
+        Type listType = TypeToken.getParameterized(List.class, Drive.class).getType();
         return new Gson().fromJson(str, listType);
     }
 
@@ -50,8 +57,9 @@ public class Drive {
         return login;
     }
 
-    public Drive(String name) {
+    public Drive name(String name) {
         this.name = name;
+        return this;
     }
 
     public String getName() {
@@ -66,24 +74,27 @@ public class Drive {
         return version;
     }
 
-    public void setVersion(int version) {
+    public Drive version(int version) {
         this.version = version;
+        return this;
     }
 
     public String getPath() {
         return TextUtils.isEmpty(path) ? "" : path;
     }
 
-    public void setPath(String path) {
+    public Drive path(String path) {
         this.path = TextUtils.isEmpty(path) ? "" : path;
+        return this;
     }
 
     public String getToken() {
         return TextUtils.isEmpty(token) ? "" : token;
     }
 
-    public void setToken(String token) {
+    public Drive token(String token) {
         this.token = token;
+        return this;
     }
 
     public Boolean search() {
@@ -99,11 +110,11 @@ public class Drive {
     }
 
     public Class toType() {
-        return new Class(getName(), getName(), "1");
+        return Class.create().id(getName()).name(getName()).flag("1");
     }
 
     public String getHost() {
-        return getServer().replace(getPath(), "");
+        return Uri.parse(getServer()).buildUpon().path(null).query(null).fragment(null).build().toString();
     }
 
     public String settingsApi() {
@@ -126,23 +137,21 @@ public class Drive {
         return getHost() + (isNew() ? "/api/fs/search" : "/api/public/search");
     }
 
-    public String searchApi(String param) {
-        return getHost() + "/search?box=" + param + "&url=&type=video";
-    }
-
-    public Drive check() {
-        if (path == null) setPath(Uri.parse(getServer()).getPath());
-        if (version == 0) setVersion(OkHttp.string(settingsApi()).contains("v2.") ? 2 : 3);
+    public Drive check(Net net) {
+        if (path == null) path(Uri.parse(getServer()).getPath());
+        if (version == 0) version(net.get(settingsApi()).contains("v2.") ? 2 : 3);
         return this;
     }
 
-    public String params(String keyword) {
+    public String params(String keyword, int page, int limit) {
         if (isNew()) {
             Map<String, Object> params = new HashMap<>();
             params.put("keywords", keyword);
-            params.put("page", 1);
+            params.put("page", page);
             params.put("parent", "/");
-            params.put("per_page", 100);
+            params.put("per_page", limit);
+            params.put("scope", 0);
+            params.put("password", findPass("/"));
             return new Gson().toJson(params);
         } else {
             Map<String, Object> params = new HashMap<>();

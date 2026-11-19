@@ -15,27 +15,30 @@ public class Filter {
     @SerializedName("value")
     private List<Value> value;
 
-    public Filter(String key, String name, List<Value> value) {
-        this.key = key;
-        this.name = name;
-        this.value = value;
+    private Filter() {
     }
 
-    public static class Value {
+    public static Filter create() {
+        return new Filter();
+    }
 
-        @SerializedName("n")
-        private String n;
-        @SerializedName("v")
-        private String v;
+    public Filter key(String key) {
+        this.key = key;
+        return this;
+    }
 
-        public Value(String value) {
-            this.n = value;
-            this.v = value;
-        }
+    public Filter name(String name) {
+        this.name = name;
+        return this;
+    }
 
-        public Value(String n, String v) {
-            this.n = n;
-            this.v = v;
-        }
+    public Filter value(List<Value> value) {
+        this.value = value;
+        return this;
+    }
+
+    public Filter init(String init) {
+        this.init = init;
+        return this;
     }
 }

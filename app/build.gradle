@@ -1,58 +1,69 @@
 plugins {
-    id 'com.android.application'
-    id 'ru.cleverpumpkin.proguard-dictionaries-generator'
+    alias(libs.plugins.android.application)
+}
+
+configurations {
+    sardine {
+        canBeConsumed = false
+        transitive = false
+    }
+}
+
+def sardineJar = layout.buildDirectory.file('libs/sardine.jar')
+def extractSardine = tasks.register('extractSardine') {
+    inputs.files(configurations.sardine)
+    outputs.file(sardineJar)
+    doLast {
+        copy {
+            from zipTree(configurations.sardine.singleFile)
+            include 'classes.jar'
+            rename 'classes.jar', 'sardine.jar'
+            into sardineJar.get().asFile.parentFile
+        }
+    }
 }
 
 android {
-    namespace 'com.github.catvod'
+    namespace = 'com.github.catvod'
+    enableKotlin = false
 
-    compileSdk {
-        version = release(36) {
-            it.minorApiLevel = 1
-        }
-    }
+    compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
-        applicationId "com.github.catvod.demo"
-        minSdk 21
-        targetSdk 36
-    }
-
-    buildFeatures {
-        viewBinding true
+        applicationId = "com.github.catvod.demo"
+        minSdk libs.versions.minSdk.get().toInteger()
+        targetSdk libs.versions.targetSdk.get().toInteger()
     }
 
     buildTypes {
         release {
-            minifyEnabled true
+            minifyEnabled = true
             proguardFiles 'proguard-rules.pro'
-            proguardDictionaries {
-                dictionaryNames = ["build/class-dictionary", "build/package-dictionary", "build/obfuscation-dictionary"]
-                minLineLength 1
-                maxLineLength 3
-                linesCountInDictionary 100000
-            }
         }
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     configurations.configureEach {
         resolutionStrategy {
-            force 'com.squareup.okhttp3:okhttp:' + okhttpVersion
+            force "com.squareup.okhttp3:okhttp:${libs.versions.okhttp.get()}"
         }
     }
 }
 
 dependencies {
-    implementation 'com.squareup.okhttp3:okhttp:' + okhttpVersion
-    implementation 'com.github.thegrizzlylabs:sardine-android:0.9'
-    implementation 'wang.harlon.quickjs:wrapper-android:3.2.3'
-    implementation 'com.google.code.gson:gson:2.13.2'
-    implementation 'com.hierynomus:smbj:0.14.0'
-    implementation 'com.orhanobut:logger:2.2.0'
-    implementation 'org.jsoup:jsoup:1.22.1'
+    sardine libs.sardine.android
+    compileOnly files(sardineJar).builtBy(extractSardine)
+    compileOnly files('libs/catvod-api.jar', 'libs/quickjs-api.jar')
+    compileOnly(libs.okhttp) { transitive = false }
+    compileOnly libs.androidx.annotation
+    compileOnly libs.androidx.core
+    compileOnly libs.gson
+    compileOnly libs.guava
+    compileOnly libs.smbj
+    compileOnly libs.slf4j
+    implementation libs.jsoup
 }

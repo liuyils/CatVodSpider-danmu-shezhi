@@ -5,7 +5,7 @@ import android.text.TextUtils;
 
 import com.github.catvod.bean.Class;
 import com.github.catvod.bean.Vod;
-import com.github.catvod.utils.Util;
+import com.github.catvod.utils.VodUtil;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
@@ -29,15 +29,23 @@ public class Drive {
     @SerializedName("path")
     private String path;
 
-    private Sardine webdav;
+    private transient Sardine webdav;
+
+    private Drive() {
+    }
+
+    public static Drive create() {
+        return new Drive();
+    }
 
     public static List<Drive> arrayFrom(String str) {
-        Type listType = new TypeToken<List<Drive>>() {}.getType();
+        Type listType = TypeToken.getParameterized(List.class, Drive.class).getType();
         return new Gson().fromJson(str, listType);
     }
 
-    public Drive(String name) {
+    public Drive name(String name) {
         this.name = name;
+        return this;
     }
 
     public String getName() {
@@ -57,15 +65,20 @@ public class Drive {
     }
 
     public String getPath() {
-        return TextUtils.isEmpty(path) ? "" : path;
+        return path == null ? Uri.parse(getServer()).getPath() : path;
     }
 
-    public void setPath(String path) {
+    public Drive path(String path) {
         this.path = TextUtils.isEmpty(path) ? "" : path;
+        return this;
     }
 
     public String getHost() {
-        return getServer().replace(getPath(), "");
+        return Uri.parse(getServer()).buildUpon().path(null).query(null).fragment(null).build().toString();
+    }
+
+    public String getUrl(String path) {
+        return Uri.parse(getHost()).buildUpon().path(path).build().toString();
     }
 
     public Sardine getWebdav() {
@@ -74,17 +87,16 @@ public class Drive {
     }
 
     public Class toType() {
-        return new Class(getName(), getName(), "1");
+        return Class.create().id(getName()).name(getName()).flag("1");
     }
 
     private void init() {
         webdav = new OkHttpSardine();
         webdav.setCredentials(getUser(), getPass());
-        setPath(Uri.parse(getServer()).getPath());
     }
 
     public Vod vod(DavResource item, String vodPic) {
-        return new Vod(getName() + item.getPath(), item.getName(), vodPic, Util.getSize(item.getContentLength()), item.isDirectory());
+        return Vod.create().id(getName() + item.getPath()).name(item.getName()).pic(vodPic).remarks(VodUtil.getSize(item.getContentLength())).tag(item.isDirectory() ? "folder" : "file");
     }
 
     @Override
